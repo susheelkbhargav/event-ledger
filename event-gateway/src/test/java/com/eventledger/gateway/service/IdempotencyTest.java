@@ -1,12 +1,18 @@
 package com.eventledger.gateway.service;
 
 import com.eventledger.gateway.domain.EventRecordRepository;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -25,6 +31,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class IdempotencyTest {
 
+    static WireMockServer wireMock = new WireMockServer(0);
+
+    @BeforeAll
+    static void start() { wireMock.start(); }
+
+    @AfterAll
+    static void stop() { wireMock.stop(); }
+
+    @DynamicPropertySource
+    static void props(DynamicPropertyRegistry registry) {
+        registry.add("account-service.base-url", () -> "http://localhost:" + wireMock.port());
+    }
+
     @Autowired MockMvc mockMvc;
     @Autowired EventRecordRepository repository;
 
@@ -33,7 +52,12 @@ class IdempotencyTest {
          "currency":"EUR","eventTimestamp":"2026-07-01T10:00:00Z"}""";
 
     @BeforeEach
-    void clean() { repository.deleteAll(); }
+    void clean() {
+        repository.deleteAll();
+        wireMock.resetAll();
+        wireMock.stubFor(WireMock.post(WireMock.urlEqualTo("/api/v1/transactions"))
+            .willReturn(WireMock.okJson("{\"eventId\":\"x\",\"accountId\":\"x\",\"duplicate\":false}")));
+    }
 
     @Test
     void submit_duplicateEventId_returns200WithOriginalAndOneRow() throws Exception {

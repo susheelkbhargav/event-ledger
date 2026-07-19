@@ -21,3 +21,12 @@ management:
   endpoint:
     health:
       show-details: always
+  tracing:
+    sampling:
+      probability: 1.0
+    propagation:
+      type: W3C
+logging:
+  structured:
+    format:
+      console: ecs

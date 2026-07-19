@@ -1,5 +1,6 @@
 package com.eventledger.gateway.api;
 
+import com.eventledger.gateway.client.AccountNotFoundException;
 import com.eventledger.gateway.service.EventNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -14,6 +15,13 @@ public class GatewayExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail handleNotFound(EventNotFoundException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
         problem.setTitle("Event Not Found");
+        return problem;
+    }
+
+    @ExceptionHandler(AccountNotFoundException.class)
+    ProblemDetail handleAccountNotFound(AccountNotFoundException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setTitle("Account Not Found");
         return problem;
     }
 }

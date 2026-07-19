@@ -13,6 +13,10 @@ spring:
     open-in-view: false
 server:
   port: 8080
+account-service:
+  base-url: http://localhost:8081
+  connect-timeout: 2s
+  read-timeout: 3s
 management:
   endpoints:
     web:
@@ -21,3 +25,21 @@ management:
   endpoint:
     health:
       show-details: always
+  tracing:
+    sampling:
+      probability: 1.0
+    propagation:
+      type: W3C
+logging:
+  structured:
+    format:
+      console: ecs
+resilience4j:
+  circuitbreaker:
+    instances:
+      accountService:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
