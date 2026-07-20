@@ -3,16 +3,19 @@ package com.eventledger.gateway.service;
 import com.eventledger.gateway.api.dto.EventRequest;
 import com.eventledger.gateway.api.dto.EventResponse;
 import com.eventledger.gateway.client.AccountServiceClient;
+import com.eventledger.gateway.client.AccountServiceServerException;
 import com.eventledger.gateway.client.dto.ApplyTransactionRequest;
 import com.eventledger.gateway.domain.EventRecord;
 import com.eventledger.gateway.domain.EventRecordRepository;
 import com.eventledger.gateway.domain.EventStatus;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.util.List;
 
@@ -37,8 +40,14 @@ public class EventService {
             return new SubmissionResult(existing, SubmissionResult.Outcome.DUPLICATE);
         }
         log.info("event {} accepted for account {}", saved.getEventId(), saved.getAccountId());
-        accountServiceClient.apply(new ApplyTransactionRequest(saved.getEventId(), saved.getAccountId(),
-            saved.getType(), saved.getAmount(), saved.getCurrency(), saved.getEventTimestamp()));
+        try {
+            accountServiceClient.apply(new ApplyTransactionRequest(saved.getEventId(), saved.getAccountId(),
+                saved.getType(), saved.getAmount(), saved.getCurrency(), saved.getEventTimestamp()));
+        } catch (ResourceAccessException | AccountServiceServerException | CallNotPermittedException e) {
+            log.warn("Account Service unavailable, queueing event {}", saved.getEventId());
+            EventRecord queued = eventPersistenceService.transition(saved.getEventId(), EventStatus.QUEUED);
+            return new SubmissionResult(queued, SubmissionResult.Outcome.QUEUED);
+        }
         EventRecord applied = eventPersistenceService.transition(saved.getEventId(), EventStatus.APPLIED);
         return new SubmissionResult(applied, SubmissionResult.Outcome.CREATED);
     }

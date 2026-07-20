@@ -17,6 +17,10 @@ account-service:
   base-url: http://localhost:8081
   connect-timeout: 2s
   read-timeout: 3s
+gateway:
+  replay:
+    interval: 5s
+    batch-size: 20
 management:
   endpoints:
     web:
