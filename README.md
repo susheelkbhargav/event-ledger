@@ -28,6 +28,7 @@ genuine build-time independence.
 - Java 21
 - Maven 3.9+
 - Docker (for the compose stack and smoke test)
+- Python 3.8+ (for `smoke_test.py`, stdlib only — no pip install)
 
 ## Run
 
@@ -60,14 +61,23 @@ cd event-gateway   && mvn test
 cd account-service && mvn test
 ```
 
-End-to-end against the compose stack (submit → duplicate → out-of-order →
-kill account container → queued → restart → replayed → balance):
+End-to-end against the compose stack (submit → duplicate returns original →
+out-of-order listing → CREDIT−DEBIT balance → validation 400s → kill account
+container → queued → restart → replayed → final balance). Uses a unique
+account per run, so it can be re-run against a live stack:
 
 ```bash
 docker compose up -d --build
-./smoke-test.sh
+./smoke_test.py
 docker compose down
 ```
+
+The `-d` flag runs the stack **detached** (in the background), so the same
+terminal is free to run the script. If you started the stack without `-d`
+(`docker compose up --build` keeps streaming logs in the foreground), leave
+it running and run `./smoke_test.py` from a **second terminal** — do not
+Ctrl-C the compose terminal, that stops the services. The script drives
+`docker compose stop/start account-service` itself to demo the outage path.
 
 ## Resiliency
 
@@ -127,7 +137,7 @@ flip the circuit.
   constraints and ACID updates, and the repository layer sits behind Spring
   Data JPA, so Postgres is a dependency + config swap.
 - **Integration-test seam.** Gateway tests run against WireMock stubs
-  mirroring the documented Account Service contract; `smoke-test.sh`
+  mirroring the documented Account Service contract; `smoke_test.py`
   exercises the real end-to-end path. Trade-off of true project independence;
   Pact contract tests are the production-grade seam.
 - **Layered, deliberately not hexagonal.** JPA entities double as the domain
