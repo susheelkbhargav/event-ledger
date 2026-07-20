@@ -37,6 +37,12 @@ Compose (builds both images):
 docker compose up --build
 ```
 
+In compose, both services use file-based H2 inside their containers
+(`SPRING_DATASOURCE_URL` override), so data survives `docker compose
+stop`/`start` — which the smoke test relies on — but not `docker compose
+down`, which recreates the containers. Local `mvn spring-boot:run` and tests
+use in-memory H2.
+
 Manual (two terminals, Account Service first):
 
 ```bash
@@ -146,14 +152,13 @@ flip the circuit.
 
 ### Trace demo
 
-One trace across both services:
+One trace across both services. Log lines carry flat `"traceId"`/`"spanId"`
+fields; submit an event, take the `traceId` from any Gateway log line for
+it, and grep — the Account Service's apply shows the same ID:
 
 ```bash
-docker compose logs | grep '"trace":{"id":"<trace_id>"'
+docker compose logs | grep <trace_id>
 ```
-
-Submit an event, take the `traceId` from any Gateway log line for it, and
-grep — the Account Service's apply shows the same ID.
 
 ## Curl walkthrough
 
