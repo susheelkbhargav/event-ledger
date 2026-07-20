@@ -46,4 +46,9 @@ resilience4j:
         sliding-window-size: 10
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10s
+        # Without this the breaker leaves OPEN only when a call asks for
+        # permission — but ReplayScheduler skips all calls while OPEN, so a
+        # breaker opened during an outage would never close and replay would
+        # wedge until unrelated submit traffic arrived.
+        automatic-transition-from-open-to-half-open-enabled: true
         permitted-number-of-calls-in-half-open-state: 3
