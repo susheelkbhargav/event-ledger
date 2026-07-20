@@ -2,6 +2,7 @@ package com.eventledger.gateway.api;
 
 import com.eventledger.gateway.client.AccountNotFoundException;
 import com.eventledger.gateway.client.AccountServiceServerException;
+import com.eventledger.gateway.service.EventMetrics;
 import com.eventledger.gateway.service.EventNotFoundException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.micrometer.tracing.Tracer;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 public class GatewayExceptionHandler extends ResponseEntityExceptionHandler {
 
     private final ObjectProvider<Tracer> tracer;
+    private final EventMetrics eventMetrics;
 
     private ProblemDetail problem(HttpStatus status, String type, String title, String detail) {
         ProblemDetail p = ProblemDetail.forStatusAndDetail(status, detail);
@@ -64,6 +66,7 @@ public class GatewayExceptionHandler extends ResponseEntityExceptionHandler {
             .map(e -> e.getField() + ": " + e.getDefaultMessage())
             .sorted()
             .collect(Collectors.joining("; "));
+        eventMetrics.countReceived(null, "rejected");
         return ResponseEntity.badRequest()
             .body(problem(HttpStatus.BAD_REQUEST, "validation", "Validation Failed", detail));
     }

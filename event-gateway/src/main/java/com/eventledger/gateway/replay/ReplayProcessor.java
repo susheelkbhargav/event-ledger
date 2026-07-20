@@ -21,6 +21,6 @@ public class ReplayProcessor {
     public void processOne(EventRecord record) {
         accountServiceClient.apply(new ApplyTransactionRequest(record.getEventId(), record.getAccountId(),
             record.getType(), record.getAmount(), record.getCurrency(), record.getEventTimestamp()));
-        eventPersistenceService.transition(record.getEventId(), EventStatus.APPLIED);
+        eventPersistenceService.transition(record.getEventId(), EventStatus.APPLIED, false);
     }
 }

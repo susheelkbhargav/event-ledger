@@ -1,0 +1,27 @@
+services:
+  account-service:
+    build: ./account-service
+    ports:
+      - "8081:8081"   # exposed for reviewer convenience; would be internal-only in production
+    environment:
+      # File-based H2 inside the container: balances survive a stop/start
+      # (the smoke test restarts this service). In-memory H2 stays the
+      # default for local runs and tests.
+      SPRING_DATASOURCE_URL: jdbc:h2:file:/tmp/account-db
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8081/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  event-gateway:
+    build: ./event-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      ACCOUNTSERVICE_BASEURL: http://account-service:8081
+      # Same durability note as account-service: QUEUED events must survive
+      # a gateway restart for the replay guarantee to hold.
+      SPRING_DATASOURCE_URL: jdbc:h2:file:/tmp/gateway-db
+    depends_on:
+      account-service:
+        condition: service_healthy

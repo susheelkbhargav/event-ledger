@@ -10,4 +10,6 @@ public interface EventRecordRepository extends JpaRepository<EventRecord, String
     List<EventRecord> findByAccountIdOrderByEventTimestampAscEventIdAsc(String accountId, Pageable pageable);
 
     List<EventRecord> findByStatusOrderByReceivedAtAsc(EventStatus status, Pageable pageable);
+
+    long countByStatus(EventStatus status);
 }

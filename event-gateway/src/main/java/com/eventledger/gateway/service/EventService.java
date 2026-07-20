@@ -27,6 +27,7 @@ public class EventService {
     private final EventRecordRepository eventRecordRepository;
     private final EventPersistenceService eventPersistenceService;
     private final AccountServiceClient accountServiceClient;
+    private final EventMetrics eventMetrics;
 
     // NO @Transactional here — the catch must sit outside the failed
     // transaction (spec §9a), and the remote call must not hold a DB
@@ -37,6 +38,7 @@ public class EventService {
             saved = eventPersistenceService.insert(request);
         } catch (DataIntegrityViolationException e) {
             EventRecord existing = eventRecordRepository.findById(request.eventId()).orElseThrow();
+            eventMetrics.countReceived(existing.getType(), "duplicate");
             return new SubmissionResult(existing, SubmissionResult.Outcome.DUPLICATE);
         }
         log.info("event {} accepted for account {}", saved.getEventId(), saved.getAccountId());
@@ -45,10 +47,10 @@ public class EventService {
                 saved.getType(), saved.getAmount(), saved.getCurrency(), saved.getEventTimestamp()));
         } catch (ResourceAccessException | AccountServiceServerException | CallNotPermittedException e) {
             log.warn("Account Service unavailable, queueing event {}", saved.getEventId());
-            EventRecord queued = eventPersistenceService.transition(saved.getEventId(), EventStatus.QUEUED);
+            EventRecord queued = eventPersistenceService.transition(saved.getEventId(), EventStatus.QUEUED, true);
             return new SubmissionResult(queued, SubmissionResult.Outcome.QUEUED);
         }
-        EventRecord applied = eventPersistenceService.transition(saved.getEventId(), EventStatus.APPLIED);
+        EventRecord applied = eventPersistenceService.transition(saved.getEventId(), EventStatus.APPLIED, true);
         return new SubmissionResult(applied, SubmissionResult.Outcome.CREATED);
     }
 
