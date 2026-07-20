@@ -3,6 +3,7 @@ package com.eventledger.account.api;
 import com.eventledger.account.service.AccountNotFoundException;
 import io.micrometer.tracing.Tracer;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 @RequiredArgsConstructor
+@Slf4j
 public class AccountExceptionHandler extends ResponseEntityExceptionHandler {
 
     private final ObjectProvider<Tracer> tracer;
@@ -38,6 +40,15 @@ public class AccountExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(AccountNotFoundException.class)
     ProblemDetail handleNotFound(AccountNotFoundException ex) {
         return problem(HttpStatus.NOT_FOUND, "account-not-found", "Account Not Found", ex.getMessage());
+    }
+
+    // Message stays generic: an unexpected exception's message may leak
+    // internals; the traceId property links the response to the full log line.
+    @ExceptionHandler(Exception.class)
+    ProblemDetail handleUnexpected(Exception ex) {
+        log.error("Unhandled exception", ex);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "internal-error",
+            "Internal Server Error", "An unexpected error occurred");
     }
 
     @Override

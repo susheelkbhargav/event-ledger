@@ -7,6 +7,7 @@ import com.eventledger.gateway.service.EventNotFoundException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.micrometer.tracing.Tracer;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 @RequiredArgsConstructor
+@Slf4j
 public class GatewayExceptionHandler extends ResponseEntityExceptionHandler {
 
     private final ObjectProvider<Tracer> tracer;
@@ -56,6 +58,15 @@ public class GatewayExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail handleAccountServiceDown(Exception ex) {
         return problem(HttpStatus.SERVICE_UNAVAILABLE, "account-service-unavailable",
             "Account Service Unavailable", "Account Service unreachable");
+    }
+
+    // Message stays generic: an unexpected exception's message may leak
+    // internals; the traceId property links the response to the full log line.
+    @ExceptionHandler(Exception.class)
+    ProblemDetail handleUnexpected(Exception ex) {
+        log.error("Unhandled exception", ex);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "internal-error",
+            "Internal Server Error", "An unexpected error occurred");
     }
 
     @Override
