@@ -98,6 +98,21 @@ synchronized retry herds. The retry burst (3 attempts, ~1.4s) is deliberately
 small relative to the breaker window (10 calls) so a single request cannot
 flip the circuit.
 
+## Architecture decisions
+
+The big "why this, not that" calls. Implementation-level mechanics behind them
+are in **Design decisions** below.
+
+| Decision | Chosen | Considered | Why this |
+|---|---|---|---|
+| Inter-service comms | Synchronous REST + durable DB replay queue | Kafka / RabbitMQ event bus | No broker to run: the `QUEUED`-events table plus the replay scheduler already deliver at-least-once + eventual consistency. A broker earns its operational weight only past the single-instance scale this targets. |
+| Contract sharing | DTO duplicated per service, no parent pom / shared module | Shared `-contract` Maven module | Keeps builds and releases genuinely independent; the two DTOs are tiny, and WireMock stubs + `smoke_test.py` catch drift. Pact would add compile-time enforcement if this grew. |
+| State model | Immutable ledger (Gateway) + derived balance (Account) | Single service storing a mutable balance | The event log is the source of truth; the balance is recomputable and replay-safe because SUM(credits)−SUM(debits) is order-independent. Cost: cross-service consistency is eventual, which is what the replay queue pays for. |
+| Failure handling | `202`/`QUEUED` persist-then-replay | `503` fail-fast | The event is already durable on the Gateway; `503` would only invite a client retry into the idempotency path. See Design decisions for the full contract. |
+| Idempotency | Insert-first, map PK collision to `200` | Check-then-insert | Check-then-insert races under concurrent duplicate delivery; insert-first is atomic at the DB. |
+| Persistence | Embedded H2 | Postgres + Testcontainers | Zero-infrastructure to run and demo; idempotency and balances lean on standard unique constraints + ACID updates behind Spring Data JPA, so Postgres is a dependency + config swap. |
+| Package structure | Layered | Hexagonal ports & adapters | JPA entities double as the domain model at this scale; the one volatile seam (`AccountServiceClient`) is already isolated behind a single class, so ports/adapters would add split with no payoff. |
+
 ## Design decisions
 
 - **202, not 503, when the Account Service is down.** On resilience
